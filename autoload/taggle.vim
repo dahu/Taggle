@@ -1,10 +1,43 @@
-" Private data & functions {{{1
+" Vim library for keeping a project's tags up to date while editing
+" Maintainer:	Barry Arthur <barry.arthur@gmail.com>
+" Version:	0.1
+" Description:	Automatic tags file tickler frequently using --append and
+" 		periodically doing full rebuilds.
+" Last Change:	2014-06-11
+" License:	Vim License (see :help license)
+" Location:	autoload/taggle.vim
+" Website:	https://github.com/dahu/taggle
+"
+" See taggle.txt for help.  This can be accessed by doing:
+"
+" :helptags ~/.vim/doc
+" :help taggle
 
-let s:default_taggle_delta = 60 * 5
+" Vimscript Setup: {{{1
+" Allow use of line continuation.
+let s:save_cpo = &cpo
+set cpo&vim
 
-if !exists('g:taggle_delta')
-  let g:taggle_delta = s:default_taggle_delta
+if exists("g:loaded_lib_taggle")
+      \ || v:version < 700
+      \ || &compatible
+  let &cpo = s:save_cpo
+  finish
 endif
+let g:loaded_lib_taggle = 1
+
+" Vim Script Information Function: {{{1
+function! taggle#info()
+  let info = {}
+  let info.name = 'taggle'
+  let info.version = 1.0
+  let info.description = 'auto-regenerate tag files'
+  return info
+endfunction
+
+" Private Functions: {{{1
+
+let taggle#default_taggle_delta = 60 * 5
 
 function! s:taggle_delta()
   if exists('b:taggle_delta')
@@ -31,26 +64,28 @@ function! s:find_tag_file(file)
     endif
   endfor
   call setloclist(0, oldloclist)
-  if &tags =~ '\./tags'
+  " If we didn't find a tags file containing the filename we're looking for
+  " but there is a tags file in the current directory, use it.
+  if (&tags =~ '\./tags') && (filereadable('\./tags'))
     return './tags'
   else
     return ''
   endif
 endfunction
-"}}}1
 
-" Public interface {{{1
+" Library Interface: {{{1
+
 function! taggle#periodic_rebuild(time)
   let time = a:time
   let delta = s:taggle_delta()
   if (! exists('b:last_taggled')) || ((time - b:last_taggled) > delta)
     let b:last_taggled = time
-    return taggle#rebuild('')
+    return taggle#rebuild()
   endif
 endfunction
 
-function! taggle#rebuild(file)
-  return taggle#ctags(a:file, '-R')
+function! taggle#rebuild()
+  return taggle#ctags(expand('%'), '-R')
 endfunction
 
 function! taggle#append(file)
@@ -60,12 +95,14 @@ endfunction
 function! taggle#ctags(file, args)
   let file = fnameescape(a:file)
   let tagfile = s:find_tag_file(file)
-  if tagfile != ''
-    silent! call system('ctags -f ' . tagfile . ' ' . a:args)
-  else
-    echohl Warning
-    echom 'No tags file found for: ' . file
-    echohl None
+  if (tagfile != '') && (getcwd() != $HOME)
+    silent! call system('ctags -f ' . tagfile . ' ' . a:args . ' &')
   endif
 endfunction
-"}}}1
+
+" Teardown:{{{1
+"reset &cpo back to users setting
+let &cpo = s:save_cpo
+
+" Template From: https://github.com/dahu/Area-41/
+" vim: set sw=2 sts=2 et fdm=marker:

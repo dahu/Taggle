@@ -1,0 +1,33 @@
+Taggle
+------
+
+__auto regenerate ctags__
+
+TIP: If you like Taggle and want to share the W00t!, I'm grateful for
+https://www.gittip.com/bairuidahu/[tips] or
+http://of-vim-and-vigor.blogspot.com/[beverages].
+
+NOTE: Taggle uses Exuberant ++ctags++ and a project tags build command
+of ++ctags -R++. I'm open to adding a configuration setting to alter
+this on a per project basis. Perhaps the best way to handle this is
+through your make/rake/ant/whatever file, exposing the relevant 'rebuild
+tags' command it offers to Taggle.
+
+Taggle updates the ++:help 'tags'++ file relevant to the file or
+project currently being edited. It uses the ++--append++ command to
+quickly add new tags from the currently edited file, while also
+periodically doing a full rebuild (primarily to ensure that stale tags
+are removed from the tags file). These rebuilds are backgrounded to
+cause minimal interference while editing. Conceivably, users atop huge
+code bases might  experience momentary loss of tag command
+functionality as the tags file is being rebuilt. Chances are this
+won't be noticed, though. An alternate design would be to rebuild the
+tags into a new filename and then move it atop the correct 'tags' file
+when it's ready. This approach has not been used here for simplicity
+sake. This decision can be revisited if necessary.
+
+.Thoughts
+
+* Are stale entries so evil? They could be removed at much greater
+  intervals, or indeed even through a manual tag rebuild.
+
