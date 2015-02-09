@@ -32,7 +32,6 @@ if !exists('g:taggle_delta')
   let g:taggle_delta = taggle#default_taggle_delta
 endif
 
-
 " Public Interface: {{{1
 function! Taggle(...)
   if a:0
@@ -61,10 +60,9 @@ endfunction
 
 augroup Taggle
   au!
-  au BufRead      * call taggle#append(expand('%'))
-  au InsertLeave  * call taggle#append(localtime())
-  au CursorHold   * call taggle#periodic_rebuild(localtime())
-  au BufWritePost * call taggle#append(expand('%'))
+  au BufRead      * silent! call taggle#append(expand('%'))
+  au InsertLeave  * silent! call taggle#periodic_rebuild(localtime())
+  au BufWritePost * silent! call taggle#rebuild()
 augroup END
 
 
