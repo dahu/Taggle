@@ -10,6 +10,8 @@
 "
 " See taggle.txt for help.  This can be accessed by doing:
 "
+" Taggle
+"
 " :helptags ~/.vim/doc
 " :help taggle
 
@@ -56,6 +58,8 @@ function! s:find_tag_file(file)
   let oldloclist = getloclist(0)
   call setloclist(0, [])
   for tf in split(&tags, '\\\@<!,')
+    " the 1 before lvimgrep limits the search to that number of hits
+    " (optimisation)
     exe 'silent! 1lvimgrep /' . file . '/j ' . tf
     let loclist = getloclist(0)
     if (len(loclist) > 0) && (loclist[0].text !~ '^grep:')
@@ -94,10 +98,82 @@ endfunction
 
 function! taggle#ctags(file, args)
   let file = fnameescape(a:file)
-  let tagfile = s:find_tag_file(file)
+  " find_tag_file() uses the location-list which interferes with other
+  " plugins also using the location-list (like Grope). This seems to be
+  " a bug in Vim itself because the problem causes a SIGSEGV.
+  " Workaround: default to ./tags only
+  " let tagfile = s:find_tag_file(file)
+  if filereadable('./tags')
+    let tagfile = './tags'
+  else
+    return
+  endif
   if (tagfile != '') && (getcwd() != $HOME)
     silent! call system('ctags -f ' . tagfile . ' ' . a:args . ' &')
   endif
+  call taggle#hitags(a:file)
+endfunction
+
+" Tag highlight groups
+" default colours based on https://github.com/romainl/Apprentice
+try | silent hi Taggle_  | catch /^Vim\%((\a\+)\)\=:E411/ | hi Taggle_  cterm=underline gui=underline | endtry
+try | silent hi Taggle_a | catch /^Vim\%((\a\+)\)\=:E411/ | hi Taggle_a ctermbg=208 ctermfg=238 guibg=#ff8700 guifg=#444444 | endtry
+try | silent hi Taggle_c | catch /^Vim\%((\a\+)\)\=:E411/ | hi Taggle_c ctermbg=229 ctermfg=238 guibg=#ffffaf guifg=#444444 | endtry
+try | silent hi Taggle_f | catch /^Vim\%((\a\+)\)\=:E411/ | hi Taggle_f ctermbg=66  ctermfg=238 guibg=#5f8787 guifg=#bcbcbc | endtry
+try | silent hi Taggle_m | catch /^Vim\%((\a\+)\)\=:E411/ | hi Taggle_m ctermbg=73  ctermfg=238 guibg=#5fafaf guifg=#444444 | endtry
+try | silent hi Taggle_v | catch /^Vim\%((\a\+)\)\=:E411/ | hi Taggle_v ctermbg=110 ctermfg=238 guibg=#8fafd7 guifg=#444444 | endtry
+
+if !exists('g:taggle_highlight')
+  let g:taggle_highlight = 0
+endif
+
+if !exists('g:taggle_highlight_multi_coloured')
+  let g:taggle_highlight_multi_coloured = 0
+endif
+
+if !exists('g:taggle_highlight_skip_file_patterns')
+  let g:taggle_highlight_skip_file_patterns = ['test']
+endif
+
+let s:tag_pat = '^\(\S\+\).*\(\S\+\)$'
+let s:syn_rep = '\="syn match Taggle_" . '
+      \ . (g:taggle_highlight_multi_coloured ? 'submatch(2)' : '""')
+      \ . ' . " \/" . expand(submatch(1), "/") . "\/ "'
+      \ . ' . " containedin=ALLBUT,.*string.*,.*comment.*"'
+
+let s:highlight_groups = []
+
+function! taggle#hitags(file)
+  if g:taggle_highlight
+    let file = fnameescape(a:file)
+    let tagfile = s:find_tag_file(file)
+    if tagfile != ''
+      let tags = readfile(tagfile)
+      for t in tags
+        if t =~ '^\!'
+          continue
+        endif
+        let fname = matchstr(t, '^\S\+\t\zs\S\+\ze\t')
+        if len(filter(map(copy(g:taggle_highlight_skip_file_patterns),
+              \ 'fname =~ v:val'), 'v:val == 1')) == 0
+          let type = 'Taggle_' . (g:taggle_highlight_multi_coloured ? matchstr(t, '\S\+$') : '')
+          call add(s:highlight_groups, type)
+          let syn_exp = substitute(t, s:tag_pat, s:syn_rep, '')
+          exe syn_exp
+        endif
+      endfor
+      let s:highlight_groups = uniq(sort(s:highlight_groups))
+    endif
+  else
+    call taggle#hiclear()
+  endif
+endfunction
+
+function! taggle#hiclear()
+  for t in s:highlight_groups
+    exe 'hi clear ' . t
+  endfor
+  let s:highlight_groups = []
 endfunction
 
 " Teardown:{{{1
